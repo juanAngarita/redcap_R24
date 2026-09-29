@@ -14,6 +14,7 @@ La información de la FMBD que debe presentarse en la encuesta es: nombre genera
 Para ejecutar es necesario que el usuario tenga instalado python en su computador. Además se debe poseer el archivo de FMBD en formato excel y un archivo inicial de la encuesta actual que se está trabajando en REDCAP. 
 
 pip install pandas openpyxl marimo
+
 python3 limpieza.py <FMBD>.xlsx <redcap>.csv
 
 # Desarrollo
