@@ -1,2 +1,9 @@
 # redcap_R24
-Repositorio creado para TG de nutrición, permite generar encuesta R24 en redcap a partir del excel de información nutricional en Colombia FMDB
+
+La encuesta R24 en Colombia actualmente se realiza capturando datos sea de manera manual o con herramientas básicas como Excel. Como una primera aproximación a poder estandarizar lo que es la toma de datos nutricionales de consumo se desarrolla en REDCAP una proyecto que permite la captura de los datos a partir de la FMBD de Colombia. Tras la captura de los datos, el investigador puede exportar los datos para realizar posteriores análisis en Excel(u otra herramienta).
+
+La FMBD actualmente se encuentra como un Excel con la información acerca de alimentos, métodos de medición, información nutricional, entre otros. Se busca que REDCAP permita al investigador seleccionar los alimentos de la FMBD para realizar una captura de datos estandarizada. 
+
+El objetivo del código en este repositorio es tener un .py que a partir del excel del FMBD y un archivo base de REDCAP permita generar las preguntas relacionadas a la selección de los alimentos en la encuesta. El resto de preguntas relacionadas al R24 no se generan en el python sino que se deben diseñar y modificar directamente en REDCAP.
+
+La información de la FMBD que debe presentarse en la encuesta es: nombre general del alimento, detalle. A partir de estos datos se debe mostrar de manera calculada lo que es el código del alimento y su método de medición. 
