@@ -13,6 +13,8 @@ La información de la FMBD que debe presentarse en la encuesta es: nombre genera
 # Ejecucion
 Para ejecutar es necesario que el usuario tenga instalado python en su computador. Además se debe poseer el archivo de FMBD en formato excel y un archivo inicial de la encuesta actual que se está trabajando en REDCAP. 
 
+python3 limpieza.py <FMBD>.xlsx <redcap>.csv
+
 # Desarrollo
 El script fue desarrollado en Marimo para poder ejecutar el código en formato de notebook. Fuera de eso solo usa librerías básicas como pandas y librerías para la lectura de archivos. Dado que el código de Marimo se vuelve un .py el código se puede ejecutar como un script. La salida final de este es un archivo que se deben cargar a REDCAP.
 
