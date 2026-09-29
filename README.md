@@ -15,3 +15,6 @@ Para ejecutar es necesario que el usuario tenga instalado python en su computado
 
 # Desarrollo
 El script fue desarrollado en Marimo para poder ejecutar el código en formato de notebook. Fuera de eso solo usa librerías básicas como pandas y librerías para la lectura de archivos. Dado que el código de Marimo se vuelve un .py el código se puede ejecutar como un script. La salida final de este es un archivo que se deben cargar a REDCAP.
+
+# Problemas
+El mayor problema del proyecto es que posterior a lo que es la selección del alimento con sus detalles REDCAP debe ser capas de calcular el código original y el método de medición. Esto se traduce en una formula en REDCAP con aproximadamente 1000 condicionales, lo cual hace que cuando se realiza la carga de la pregunta la carga sea lenta. Este problema no se tenía documentado en la planeación inicial del proyecto.
