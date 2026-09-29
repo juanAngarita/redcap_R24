@@ -7,3 +7,9 @@ La FMBD actualmente se encuentra como un Excel con la información acerca de ali
 El objetivo del código en este repositorio es tener un .py que a partir del excel del FMBD y un archivo base de REDCAP permita generar las preguntas relacionadas a la selección de los alimentos en la encuesta. El resto de preguntas relacionadas al R24 no se generan en el python sino que se deben diseñar y modificar directamente en REDCAP.
 
 La información de la FMBD que debe presentarse en la encuesta es: nombre general del alimento, detalle. A partir de estos datos se debe mostrar de manera calculada lo que es el código del alimento y su método de medición. 
+
+<img width="1142" height="643" alt="Captura de pantalla 2026-09-29 a la(s) 12 19 36 p m" src="https://github.com/user-attachments/assets/5daf11c9-b584-45a9-8382-e3af19cc6eb2" />
+
+# Ejecucion
+Para ejecutar es necesario que el usuario tenga instalado python en su computador. Además se debe poseer el archivo de FMBD en formato excel y un archivo inicial de la encuesta actual que se está trabajando en REDCAP. 
+
