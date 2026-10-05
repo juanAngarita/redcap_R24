@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.16"
+__generated_with = "0.23.5"
 app = marimo.App(width="medium")
 
 
@@ -25,12 +25,13 @@ def _():
     import sys
     import argparse
 
+    # Si la importación se realiza desde marimo
     if "marimo" in sys.modules:
         # Estamos trabajando dentro de marimo
         food_file = "FMDB_JULIO_2026.xlsx"
-        redcap_file = "DiseoEImplementacinDeUnaHerram_DataDictionary_2026-09-25.csv"
+        redcap_file = "DiseoEImplementacinDeUnaHerram_DataDictionary_2026-10-04.csv"
     else:
-        # Estamos ejecutando como Python normal
+        # Si la importación se ejecuta a través de consola
         parser = argparse.ArgumentParser()
 
         parser.add_argument(
@@ -95,19 +96,15 @@ def _(pd, redcap_file):
 
     # Eliminamos las variables que se van a generar durante el notebook
     df_red = df_red[
-        df_red["Variable / Field Name"] != "food_name"
-    ].reset_index(drop=True)
-
-    df_red = df_red[
-        ~df_red["Variable / Field Name"].str.contains("food_detail", na=False)
-    ].reset_index(drop=True)
-
-    df_red = df_red[
-        df_red["Variable / Field Name"] != "food_code"
-    ].reset_index(drop=True)
-
-    df_red = df_red[
-        df_red["Variable / Field Name"] != "food_conversion"
+        ~df_red["Variable / Field Name"].isin([
+            "food_name",
+            "food_code",
+            "food_conversion"
+        ])
+        & ~df_red["Variable / Field Name"].str.contains(
+            "food_detail",
+            na=False
+        )
     ].reset_index(drop=True)
 
     df_red.head(100)
@@ -212,85 +209,86 @@ def _(mo):
 
 @app.cell
 def _(alimentos, df_foods, df_red, pd):
-    # usando el branching logic se genera una pregunta por cada posible detalle que tengan las comidas
+    # Usando el branching logic se genera una pregunta por cada posible detalle
 
     filas_detalle = []
 
+    # Permite obtener todos los valores únicos en una columna de detalle
+    def obtener_detalles(df, columna):
+        return (
+            df[columna]
+            .dropna()
+            .astype(str)
+            .str.strip()
+            .loc[lambda x: x != ""]
+            .unique()
+        )
 
-    # ============================================================
-    # GENERAR DETALLE 1
-    # ============================================================
+
+    def crear_mapa(detalles):
+        return {
+            detalle: codigo
+            for codigo, detalle in enumerate(detalles, start=1)
+        }
+
+
+    def crear_choices(mapa):
+        return " | ".join(
+            f"{codigo}, {detalle}"
+            for detalle, codigo in mapa.items()
+        )
+
+
+    def crear_fila(campo, etiqueta, choices, branching):
+        return {
+            "Variable / Field Name": campo,
+            "Form Name": "alimentos",
+            "Field Type": "dropdown",
+            "Field Label": etiqueta,
+            "Choices, Calculations, OR Slider Labels": choices,
+            "Branching Logic (Show field only if...)": branching,
+            "Required Field?": ""
+        }
+
 
     for alimento in alimentos.itertuples():
 
-        # nombre y codigo(auto) del alimento
         nombre_alimento = alimento.name
         codigo_alimento = alimento.code
 
-        # buscamos todas las filas que tengan unicamente dicho alimento
         filas_alimento = df_foods[
             df_foods["name"] == nombre_alimento
         ]
 
-        # obtenemos la lista de detalles_1 que puede tener el alimento
-        detalles_1 = (
-            filas_alimento["detalle_1"]
-            .dropna()
-            .astype(str)
-            .str.strip()
+        # ========================================================
+        # DETALLE 1
+        # ========================================================
+
+        detalles_1 = obtener_detalles(
+            filas_alimento,
+            "detalle_1"
         )
 
-        # Eliminamos duplicados
-        detalles_1 = detalles_1[
-            detalles_1 != ""
-        ].unique()
-
-        # Si no hay detalles seguimos
         if len(detalles_1) == 0:
             continue
 
-        # Creamos códigos para los detalle_1
-        # 1,2,3
-        mapa_detalle_1 = {
-            detalle: i + 1
-            for i, detalle in enumerate(detalles_1)
-        }
+        mapa_1 = crear_mapa(detalles_1)
+        campo_1 = f"f_d_1_{codigo_alimento}"
 
-        # Completamos el codigo del detalle con el codigo original del alimento
-        # 2_1, 2_2
-        choices_detalle_1 = " | ".join(
-            f"{codigo}, {detalle}"
-            for detalle, codigo in mapa_detalle_1.items()
-        )
-
-        # Completamos el codigo con el prefijo 1 para identificar que es el detalle 1
-        # 1_2_1, 1_2_2
-        # Detalle nivel 1 alimento 2 detalle 1 y Detalle nivel 1 alimento 2 detalle 2
-        nombre_campo_1 = (
-            f"food_detail_1_{codigo_alimento}"
-        )
-
-        fila = {
-            "Variable / Field Name": nombre_campo_1,
-            "Form Name": "alimentos",
-            "Field Type": "dropdown",
-            "Field Label": (
-                f"Seleccione la especificación 1 de {nombre_alimento}"
-            ),
-            "Choices, Calculations, OR Slider Labels": choices_detalle_1,
-            "Branching Logic (Show field only if...)": (
+        filas_detalle.append(
+            crear_fila(
+                campo_1,
+                f"Seleccione la especificación 1 de {nombre_alimento}",
+                crear_choices(mapa_1),
                 f"[food_name] = '{codigo_alimento}'"
-            ),
-            "Required Field?": ""
-        }
-
-        filas_detalle.append(fila)
+            )
+        )
 
         # ========================================================
-        # GENERAR DETALLE 2
+        # DETALLE 2
         # ========================================================
 
-        for detalle_1, codigo_detalle_1 in mapa_detalle_1.items():
+        for detalle_1, codigo_1 in mapa_1.items():
 
             filas_detalle_1 = filas_alimento[
                 filas_alimento["detalle_1"]
@@ -299,63 +297,38 @@ def _(alimentos, df_foods, df_red, pd):
                 == detalle_1
             ]
 
-            detalles_2 = (
-                filas_detalle_1["detalle_2"]
-                .dropna()
-                .astype(str)
-                .str.strip()
+            detalles_2 = obtener_detalles(
+                filas_detalle_1,
+                "detalle_2"
             )
-
-            detalles_2 = detalles_2[
-                detalles_2 != ""
-            ].unique()
 
             if len(detalles_2) == 0:
                 continue
 
-            # Código del campo detalle_2
-            nombre_campo_2 = (
-                f"food_detail_2_"
+            mapa_2 = crear_mapa(detalles_2)
+            campo_2 = (
+                f"f_d_2_"
                 f"{codigo_alimento}_"
-                f"{codigo_detalle_1}"
+                f"{codigo_1}"
             )
 
-            # Opciones del detalle_2
-            mapa_detalle_2 = {
-                detalle: i + 1
-                for i, detalle in enumerate(detalles_2)
-            }
-
-            choices_detalle_2 = " | ".join(
-                f"{codigo}, {detalle}"
-                for detalle, codigo in mapa_detalle_2.items()
+            filas_detalle.append(
+                crear_fila(
+                    campo_2,
+                    f"Seleccione la especificación 2 de {nombre_alimento}",
+                    crear_choices(mapa_2),
+                    (
+                        f"[food_name] = '{codigo_alimento}' "
+                        f"and [{campo_1}] = '{codigo_1}'"
+                    )
+                )
             )
 
-            fila = {
-                "Variable / Field Name": nombre_campo_2,
-                "Form Name": "alimentos",
-                "Field Type": "dropdown",
-                "Field Label": (
-                    f"Seleccione la especificación 2 "
-                    f"de {nombre_alimento}"
-                ),
-                "Choices, Calculations, OR Slider Labels": choices_detalle_2,
-                "Branching Logic (Show field only if...)": (
-                    f"[food_name] = '{codigo_alimento}' "
-                    f"and "
-                    f"[{nombre_campo_1}] = '{codigo_detalle_1}'"
-                ),
-                "Required Field?": ""
-            }
-
-            filas_detalle.append(fila)
-
-
             # ====================================================
-            # GENERAR DETALLE 3
+            # DETALLE 3
             # ====================================================
 
-            for detalle_2, codigo_detalle_2 in mapa_detalle_2.items():
+            for detalle_2, codigo_2 in mapa_2.items():
 
                 filas_detalle_2 = filas_detalle_1[
                     filas_detalle_1["detalle_2"]
@@ -364,77 +337,34 @@ def _(alimentos, df_foods, df_red, pd):
                     == detalle_2
                 ]
 
-                detalles_3 = (
-                    filas_detalle_2["detalle_3"]
-                    .dropna()
-                    .astype(str)
-                    .str.strip()
+                detalles_3 = obtener_detalles(
+                    filas_detalle_2,
+                    "detalle_3"
                 )
-
-                detalles_3 = detalles_3[
-                    detalles_3 != ""
-                ].unique()
 
                 if len(detalles_3) == 0:
                     continue
 
-                # Nombre único del campo
-                nombre_campo_3 = (
-                    f"food_detail_3_"
+                mapa_3 = crear_mapa(detalles_3)
+                campo_3 = (
+                    f"f_d_3_"
                     f"{codigo_alimento}_"
-                    f"{codigo_detalle_1}_"
-                    f"{codigo_detalle_2}"
+                    f"{codigo_1}_"
+                    f"{codigo_2}"
                 )
 
-                # Opciones
-                mapa_detalle_3 = {
-                    detalle: i + 1
-                    for i, detalle in enumerate(detalles_3)
-                }
-
-                choices_detalle_3 = " | ".join(
-                    f"{codigo}, {detalle}"
-                    for detalle, codigo in mapa_detalle_3.items()
+                filas_detalle.append(
+                    crear_fila(
+                        campo_3,
+                        f"Seleccione la especificación 3 de {nombre_alimento}",
+                        crear_choices(mapa_3),
+                        (
+                            f"[food_name] = '{codigo_alimento}' "
+                            f"and [{campo_1}] = '{codigo_1}' "
+                            f"and [{campo_2}] = '{codigo_2}'"
+                        )
+                    )
                 )
-
-                fila = pd.Series(
-                    index=df_red.columns,
-                    dtype=object
-                )
-
-                fila["Variable / Field Name"] = nombre_campo_3
-                fila["Form Name"] = "alimentos"
-                fila["Field Type"] = "dropdown"
-
-                fila["Field Label"] = (
-                    f"Seleccione la especificación 3 "
-                    f"de {nombre_alimento}"
-                )
-
-                fila[
-                    "Choices, Calculations, OR Slider Labels"
-                ] = choices_detalle_3
-
-                # El detalle_3 depende de:
-                #
-                # alimento
-                # +
-                # detalle_1
-                # +
-                # detalle_2
-                fila[
-                    "Branching Logic (Show field only if...)"
-                ] = (
-                    f"[food_name] = '{codigo_alimento}' "
-                    f"and "
-                    f"[{nombre_campo_1}] = '{codigo_detalle_1}' "
-                    f"and "
-                    f"[{nombre_campo_2}] = '{codigo_detalle_2}'"
-                )
-
-                fila["Required Field?"] = ""
-
-                filas_detalle.append(fila)
 
 
     # ============================================================
@@ -748,7 +678,7 @@ def _(df_codigo, pd):
         if pd.notna(fila_n.codigo_detalle_3):
 
             campo_condicion = (
-                f"food_detail_3_"
+                f"f_d_3_"
                 f"{fila_n.food_name_code}_"
                 f"{int(fila_n.codigo_detalle_1)}_"
                 f"{int(fila_n.codigo_detalle_2)}"
@@ -765,7 +695,7 @@ def _(df_codigo, pd):
         elif pd.notna(fila_n.codigo_detalle_2):
 
             campo_condicion = (
-                f"food_detail_2_"
+                f"f_d_2_"
                 f"{fila_n.food_name_code}_"
                 f"{int(fila_n.codigo_detalle_1)}"
             )
@@ -781,7 +711,7 @@ def _(df_codigo, pd):
         elif pd.notna(fila_n.codigo_detalle_1):
 
             campo_condicion = (
-                f"food_detail_1_"
+                f"f_d_1_"
                 f"{fila_n.food_name_code}"
             )
 
@@ -958,6 +888,10 @@ def _(choices_name, df_red, formula_conversion, formula_food_code, pd):
 
 @app.cell
 def _(df_detalles, df_red, fila_food, pd):
+    # ============================================================
+    # UNIR CAMPOS
+    # ============================================================
+
     df_red_prueba = pd.concat(
         [
             df_red,
@@ -966,6 +900,57 @@ def _(df_detalles, df_red, fila_food, pd):
         ],
         ignore_index=True
     )
+
+    # ============================================================
+    # MOVER TODOS LOS CAMPOS DEL FORM "alimentos" JUNTOS
+    # ============================================================
+
+    es_alimentos = (
+        df_red_prueba["Form Name"] == "alimentos"
+    )
+
+    df_alimentos = df_red_prueba[
+        es_alimentos
+    ].copy()
+
+    df_otros = df_red_prueba[
+        ~es_alimentos
+    ].copy()
+
+    # Form "alimentos" queda como un bloque al final
+    df_red_prueba = pd.concat(
+        [
+            df_otros,
+            df_alimentos
+        ],
+        ignore_index=True
+    )
+
+    es_verificacion = (
+        df_red_prueba["Form Name"] == "verificacin_r24h"
+    )
+
+    df_verificacion = df_red_prueba[es_verificacion]
+    df_otros = df_red_prueba[~es_verificacion]
+
+    df_red_prueba = pd.concat(
+        [
+            df_otros,
+            df_verificacion
+        ],
+        ignore_index=True
+    )
+
+    for columna in [
+        "Text Validation Max",
+        "Text Validation Min"
+    ]:
+        df_red_prueba[columna] = (
+            pd.to_numeric(
+                df_red_prueba[columna],
+                errors="coerce"
+            ).astype("Int64")
+        )
 
     df_red_prueba
     return (df_red_prueba,)
@@ -977,6 +962,11 @@ def _(df_red_prueba):
         "data_dictionary_generado.csv",
         index=False
     )
+    return
+
+
+@app.cell
+def _():
     return
 
 
