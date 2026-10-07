@@ -443,8 +443,7 @@ def _(alimentos, df_foods, df_red, pd):
         # 1023, con sal
         # 1024, sin sal
         else:
-            # Detalle 1 ES el último:
-            # utiliza el código original del Excel
+            # Nos permite obtener el código original del excel
             codigos_originales_1 = {
                 str(fila["detalle_1"]).strip(): fila["original_code"]
                 for _, fila in filas_alimento.iterrows()
@@ -452,11 +451,13 @@ def _(alimentos, df_foods, df_red, pd):
                 and str(fila["detalle_1"]).strip() != ""
             }
 
+            # Asignamos en el choice el código original
             choices_1 = crear_choices(
                 mapa_1,
                 codigos_originales_1
             )
 
+        # Generamos la nueva fila
         filas_detalle.append(
             crear_fila(
                 campo_1,
