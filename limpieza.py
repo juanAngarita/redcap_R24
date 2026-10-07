@@ -16,6 +16,16 @@ def _():
 def _(mo):
     mo.md("""
     # 0. Importación de datos
+
+    El programa se puede ejecutar tanto desde consola como diréctamente desde el book de marimo. En cualquier caso, la entreda de datos necesaria es la base de datos de alimentos (FMBD) y el diccionarío de datos que se tena actualmente en redcap.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## 0.1 Lectura de parametros
     """)
     return
 
@@ -51,6 +61,14 @@ def _():
     return food_file, redcap_file
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## 0.2 Lectura de tabla de comidas y códigos
+    """)
+    return
+
+
 @app.cell
 def _(food_file, pd):
     # Base de datos de alimentos, hoja principal
@@ -65,6 +83,14 @@ def _(food_file, pd):
 
     df_foods
     return (df_foods,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## 0.3 Lectura de tabla de métodos de conversióm
+    """)
+    return
 
 
 @app.cell
@@ -84,9 +110,16 @@ def _(food_file, pd):
     df_portion = df_portion.rename(columns={"Food or recipe code*": "code"})
     df_portion = df_portion.rename(columns={"Conversion method description (Lang. 1)": "conversion"})
 
-
     df_portion
     return (df_portion,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## 0.4 Lectura archivo actual de redcap
+    """)
+    return
 
 
 @app.cell
@@ -102,7 +135,7 @@ def _(pd, redcap_file):
             "food_conversion"
         ])
         & ~df_red["Variable / Field Name"].str.contains(
-            "food_detail",
+            "food_detail" or "f_d",
             na=False
         )
     ].reset_index(drop=True)
@@ -115,6 +148,18 @@ def _(pd, redcap_file):
 def _(mo):
     mo.md(r"""
     # 1. Extracción de detalles
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Cada una de las comidas de la base de datos tienen varios detalles separados por coma.
+
+    Ejemplo: carne, asada, con sal
+
+    El objetivo de esta primera parte es realizar la separación de la comida de sus detalles.
     """)
     return
 
@@ -151,6 +196,14 @@ def _(mo):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    El objetivo de esta parte es coger unicamente los alimentos generales sin sus detalles y generar un código inicial para cada uno de estos.
+    """)
+    return
+
+
 @app.cell
 def _(df_foods):
     # Generamos un nuevo DF con unicamente las comidas generales quitando repetidos
@@ -170,6 +223,16 @@ def _(df_foods):
     return (alimentos,)
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Para tener múltiples opciones redcap necesita el siguiente formato de string.
+
+    1, opcion1 | 2, opcion2 | 3, opcion3 |
+    """)
+    return
+
+
 @app.cell
 def _(alimentos):
     # Generamos un único String con el formato que necesita redCap
@@ -182,6 +245,14 @@ def _(alimentos):
 
     choices_name
     return (choices_name,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Finalmente generamos la nueva fila para el formulario de REDCAP con la pregunta acerca de los alimentos generales
+    """)
+    return
 
 
 @app.cell
@@ -207,47 +278,97 @@ def _(mo):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    A partir de lo que es la selección de la comida general el usuario debe posteriormente seleccionar los detalles en una nueva pregunta.
+
+    Así tras escoger lo que es por ejemplo carne debe aparecer una opción preguntando:
+
+    Seleccione el detalle de la carne
+    - Frita
+    - Asada
+
+    Y después si hay más detalle volver a preguntar
+
+    Seleccione el detalle de su carne asada
+    - con sal
+    - sin sal
+
+    Van a haber algunos alimentos a los cuales no se les pregunta tanto detalle, pero depende de cada caso inidividual.
+
+    Para lograr lo anterior cada posible detalle se vuelve una nueva pregunta. Y esta pregunta solo debe aparecer después de seleccionar lo que es la cómida general.
+    """)
+    return
+
+
+@app.function
+# Entrada: detalles = ["Frita", "Asada", "Cocida"]
+
+# Salida:
+#{
+#    "Frita": 1,
+#    "Asada": 2,
+#    "Cocida": 3
+#}
+def crear_mapa(detalles):
+    return {
+        detalle: codigo
+        for codigo, detalle in enumerate(detalles, start=1)
+    }
+
+
+@app.function
+def crear_choices(mapa, codigos_originales=None):
+    # Si NO es el último detalle:
+    # se utilizan códigos internos 1, 2, 3...
+    if codigos_originales is None:
+        return " | ".join(
+            f"{codigo}, {detalle}"
+            for detalle, codigo in mapa.items()
+        )
+
+    # Si ES el último detalle:
+    # se utiliza directamente el código original del Excel
+    return " | ".join(
+        f"{codigos_originales[detalle]}, {detalle}"
+        for detalle in mapa
+    )
+
+
+@app.function
+# Permite obtener todos los valores únicos en una columna de detalle
+# Entrada: una columna de detalle
+# Salida: una lista con valores únicos
+def obtener_detalles(df, columna):
+    return (
+        df[columna]
+        .dropna()
+        .astype(str)
+        .str.strip()
+        .loc[lambda x: x != ""]
+        .unique()
+    )
+
+
+@app.function
+# Verifica si hay un nivel de detalle adicional en una columna para una fila de alimentos
+def tiene_detalle(filas_alimento, columna):
+    return (
+        filas_alimento[columna]
+        .dropna()
+        .astype(str)
+        .str.strip()
+        .ne("")
+        .any()
+    )
+
+
 @app.cell
 def _(alimentos, df_foods, df_red, pd):
     # Usando el branching logic se genera una pregunta por cada posible detalle
 
     filas_detalle = []
-
-    # Permite obtener todos los valores únicos en una columna de detalle
-    def obtener_detalles(df, columna):
-        return (
-            df[columna]
-            .dropna()
-            .astype(str)
-            .str.strip()
-            .loc[lambda x: x != ""]
-            .unique()
-        )
-
-
-    def crear_mapa(detalles):
-        return {
-            detalle: codigo
-            for codigo, detalle in enumerate(detalles, start=1)
-        }
-
-
-    def crear_choices(mapa, codigos_originales=None):
-        # Si NO es el último detalle:
-        # se utilizan códigos internos 1, 2, 3...
-        if codigos_originales is None:
-            return " | ".join(
-                f"{codigo}, {detalle}"
-                for detalle, codigo in mapa.items()
-            )
-
-        # Si ES el último detalle:
-        # se utiliza directamente el código original del Excel
-        return " | ".join(
-            f"{codigos_originales[detalle]}, {detalle}"
-            for detalle in mapa
-        )
-
 
     def crear_fila(campo, etiqueta, choices, branching):
         return {
@@ -260,12 +381,14 @@ def _(alimentos, df_foods, df_red, pd):
             "Required Field?": ""
         }
 
-
+    # Por cada alimento en alimentos
     for alimento in alimentos.itertuples():
 
+        # Obtenemos el nombre y codigo
         nombre_alimento = alimento.name
         codigo_alimento = alimento.code
 
+        # Filtramos por unicamente las filas que están relacionadas con la comida actual
         filas_alimento = df_foods[
             df_foods["name"] == nombre_alimento
         ]
@@ -274,32 +397,51 @@ def _(alimentos, df_foods, df_red, pd):
         # DETALLE 1
         # ========================================================
 
+        # Obtenemos los detalles que solo están relacionadas a esa comida
         detalles_1 = obtener_detalles(
             filas_alimento,
             "detalle_1"
         )
 
+        # Si la comida no tiene detalle seguimos con la siguiente
         if len(detalles_1) == 0:
             continue
 
+        # Generamos un mapa con cada uno de los detalles
+        #{"Frita": 1,"Asada": 2,"Cocida": 3}
         mapa_1 = crear_mapa(detalles_1)
+    
+        # Los codigos de detalle tienen la siguiente estructura
+        # f_d_<nivel_detalle>_<codigo_alimento>
+        # En este caso estamos definiendo un código para detalle de nivel 1
+        # Este campo va a ser el field name(nombre del campo) de la pregunta.
         campo_1 = f"f_d_1_{codigo_alimento}"
 
-        # Verificamos si detalle 1 es el ÚLTIMO nivel
-        tiene_detalle_2 = (
-            filas_alimento["detalle_2"]
-            .dropna()
-            .astype(str)
-            .str.strip()
-            .ne("")
-            .any()
-        )
+        # En esta parte hay 2 caminos
+        # El objetivo es que si estoy en el úlitmo nivel de detalle al seleccionar la opción en la parte de choices se maeque con el código original del excel
+        # 1023, con sal
+        # 1024, sin sal
 
+        # Sin embargo si no es el último nivel vamos a generar las opciones con un indice normal
+        # 1, asada
+        # 2, frita
+        # 3, molida
+    
+        # Verificamos si detalle 1 es el ÚLTIMO nivel
+        tiene_detalle_2 = tiene_detalle(filas_alimento, "detalle_2")
+
+        # si tiene mas detalle generamos indice para generar las opciones
+        # 1, asada
+        # 2, frita
+        # 3, molida
         if tiene_detalle_2:
             # Detalle 1 NO es el último:
             # utiliza códigos internos 1, 2, 3...
             choices_1 = crear_choices(mapa_1)
 
+        # En caso contrario usamos simplemente el código original
+        # 1023, con sal
+        # 1024, sin sal
         else:
             # Detalle 1 ES el último:
             # utiliza el código original del Excel
@@ -469,7 +611,291 @@ def _(alimentos, df_foods, df_red, pd):
 
 
 @app.cell
+def _(df_codigo, pd):
+    condiciones_food_code = []
+
+    # ============================================================
+    # CONDICIONES PARA CONVERSIÓN
+    #
+    # Se agrupan por:
+    #
+    # alimento
+    #     └── último nivel de detalle
+    #             └── conversión
+    #                 └── condiciones OR
+    #
+    # ============================================================
+
+    condiciones_conversion = {}
+
+
+    for fila_n in df_codigo.itertuples():
+
+        # ========================================================
+        # DETERMINAR EL CAMPO MÁS ESPECÍFICO
+        # ========================================================
+
+        # --------------------------------------------------------
+        # DETALLE 3
+        # --------------------------------------------------------
+
+        if pd.notna(fila_n.codigo_detalle_3):
+
+            campo_condicion = (
+                f"f_d_3_"
+                f"{fila_n.food_name_code}_"
+                f"{int(fila_n.codigo_detalle_1)}_"
+                f"{int(fila_n.codigo_detalle_2)}"
+            )
+
+            codigo_condicion = int(
+                fila_n.codigo_detalle_3
+            )
+
+            nivel = 3
+
+
+        # --------------------------------------------------------
+        # DETALLE 2
+        # --------------------------------------------------------
+
+        elif pd.notna(fila_n.codigo_detalle_2):
+
+            campo_condicion = (
+                f"f_d_2_"
+                f"{fila_n.food_name_code}_"
+                f"{int(fila_n.codigo_detalle_1)}"
+            )
+
+            codigo_condicion = int(
+                fila_n.codigo_detalle_2
+            )
+
+            nivel = 2
+
+
+        # --------------------------------------------------------
+        # DETALLE 1
+        # --------------------------------------------------------
+
+        elif pd.notna(fila_n.codigo_detalle_1):
+
+            campo_condicion = (
+                f"f_d_1_"
+                f"{fila_n.food_name_code}"
+            )
+
+            codigo_condicion = int(
+                fila_n.codigo_detalle_1
+            )
+
+            nivel = 1
+
+
+        # --------------------------------------------------------
+        # SIN DETALLES
+        # --------------------------------------------------------
+
+        else:
+
+            campo_condicion = "food_name"
+
+            codigo_condicion = int(
+                fila_n.food_name_code
+            )
+
+            nivel = 0
+
+
+        # ========================================================
+        # GENERAR IF PARA EL CÓDIGO
+        # ========================================================
+
+        condiciones_food_code.append(
+            f"if("
+            f"[{campo_condicion}] = "
+            f"'{codigo_condicion}', "
+            f"{fila_n.food_code},"
+        )
+
+
+        # ========================================================
+        # MÉTODO DE CONVERSIÓN
+        # ========================================================
+
+        conversion = (
+            fila_n.conversion
+            if pd.notna(fila_n.conversion)
+            else ""
+        )
+
+
+        # ========================================================
+        # AGRUPAR POR ALIMENTO + NIVEL + CONVERSIÓN
+        # ========================================================
+
+        alimento2 = fila_n.food_name_code
+
+        if alimento2 not in condiciones_conversion:
+            condiciones_conversion[alimento2] = {}
+
+        if nivel not in condiciones_conversion[alimento2]:
+            condiciones_conversion[alimento2][nivel] = {}
+
+        if conversion not in condiciones_conversion[alimento2][nivel]:
+            condiciones_conversion[alimento2][nivel][conversion] = []
+
+        condiciones_conversion[alimento2][nivel][conversion].append(
+            f"[{campo_condicion}] = '{codigo_condicion}'"
+        )
+
+
+    # ============================================================
+    # CONSTRUIR FÓRMULA DEL CÓDIGO
+    # ============================================================
+
+    formula_food_code = "\n".join(
+        condiciones_food_code
+    )
+
+    formula_food_code += "''"
+
+    formula_food_code += ")" * len(
+        condiciones_food_code
+    )
+
+
+    formula_food_code
+
+
+    ################
+    # ============================================================
+    # 1. DETERMINAR EL ÚLTIMO NIVEL DE CADA ALIMENTO
+    # ============================================================
+
+    niveles_por_alimento = {}
+
+    for fila_n in df_codigo.itertuples():
+
+        if pd.notna(fila_n.codigo_detalle_3):
+            nivel = 3
+        elif pd.notna(fila_n.codigo_detalle_2):
+            nivel = 2
+        elif pd.notna(fila_n.codigo_detalle_1):
+            nivel = 1
+        else:
+            nivel = 0
+
+        codigo_alimento2 = int(fila_n.food_name_code)
+
+        niveles_por_alimento[codigo_alimento2] = max(
+            niveles_por_alimento.get(codigo_alimento2, 0),
+            nivel
+        )
+
+
+    # ============================================================
+    # 2. AGRUPAR CONDICIONES POR MÉTODO DE CONVERSIÓN
+    # ============================================================
+
+    condiciones_por_conversion = {}
+
+    for fila_n in df_codigo.itertuples():
+
+        codigo_alimento2 = int(fila_n.food_name_code)
+
+        # Determinar nivel
+        if pd.notna(fila_n.codigo_detalle_3):
+    
+            nivel = 3
+            campo_condicion = (
+                f"f_d_3_"
+                f"{fila_n.food_name_code}_"
+                f"{int(fila_n.codigo_detalle_1)}_"
+                f"{int(fila_n.codigo_detalle_2)}"
+            )
+    
+        elif pd.notna(fila_n.codigo_detalle_2):
+    
+            nivel = 2
+            campo_condicion = (
+                f"f_d_2_"
+                f"{fila_n.food_name_code}_"
+                f"{int(fila_n.codigo_detalle_1)}"
+            )
+    
+        elif pd.notna(fila_n.codigo_detalle_1):
+    
+            nivel = 1
+            campo_condicion = (
+                f"f_d_1_"
+                f"{fila_n.food_name_code}"
+            )
+    
+        else:
+    
+            nivel = 0
+            campo_condicion = "food_name"
+    
+    
+        # Solo usar el último nivel
+        if nivel != niveles_por_alimento[codigo_alimento2]:
+            continue
+    
+    
+        # El último nivel usa el código ORIGINAL
+        codigo_condicion = int(fila_n.food_code)
+
+
+        conversion = (
+            fila_n.conversion
+            if pd.notna(fila_n.conversion)
+            else ""
+        )
+
+
+        # No agrupamos conversiones vacías
+        if conversion == "":
+            continue
+
+
+        if conversion not in condiciones_por_conversion:
+            condiciones_por_conversion[conversion] = []
+
+
+        condiciones_por_conversion[conversion].append(
+            f"[{campo_condicion}] = '{codigo_condicion}'"
+        )
+
+
+    # ============================================================
+    # 3. CONSTRUIR LA FÓRMULA AGRUPANDO POR CONVERSIÓN
+    # ============================================================
+
+    bloques_conversion = []
+
+    for conversion, condiciones in condiciones_por_conversion.items():
+
+        condiciones_or = "\n    or ".join(condiciones)
+
+        bloques_conversion.append(
+            f"if(\n"
+            f"    {condiciones_or},\n"
+            f"    '{conversion}',"
+        )
+
+
+    formula_conversion = "\n".join(bloques_conversion)
+
+    formula_conversion += "\n''"
+
+    formula_conversion += ")" * len(bloques_conversion)
+    return (formula_conversion,)
+
+
+@app.cell
 def _(alimentos, df_foods, df_portion, pd):
+
     def generar_df_codigo(
         df_foods,
         alimentos,
@@ -745,147 +1171,6 @@ def _(alimentos, df_foods, df_portion, pd):
 
     df_codigo
     return (df_codigo,)
-
-
-@app.cell
-def _(df_codigo, pd):
-    condiciones_food_code = []
-    condiciones_conversion = []
-
-
-    for fila_n in df_codigo.itertuples():
-
-        # ========================================================
-        # DETERMINAR EL CAMPO MÁS ESPECÍFICO
-        # ========================================================
-
-        # --------------------------------------------------------
-        # DETALLE 3
-        # --------------------------------------------------------
-
-        if pd.notna(fila_n.codigo_detalle_3):
-
-            campo_condicion = (
-                f"f_d_3_"
-                f"{fila_n.food_name_code}_"
-                f"{int(fila_n.codigo_detalle_1)}_"
-                f"{int(fila_n.codigo_detalle_2)}"
-            )
-
-            codigo_condicion = int(
-                fila_n.codigo_detalle_3
-            )
-
-        # --------------------------------------------------------
-        # DETALLE 2
-        # --------------------------------------------------------
-
-        elif pd.notna(fila_n.codigo_detalle_2):
-
-            campo_condicion = (
-                f"f_d_2_"
-                f"{fila_n.food_name_code}_"
-                f"{int(fila_n.codigo_detalle_1)}"
-            )
-
-            codigo_condicion = int(
-                fila_n.codigo_detalle_2
-            )
-
-        # --------------------------------------------------------
-        # DETALLE 1
-        # --------------------------------------------------------
-
-        elif pd.notna(fila_n.codigo_detalle_1):
-
-            campo_condicion = (
-                f"f_d_1_"
-                f"{fila_n.food_name_code}"
-            )
-
-            codigo_condicion = int(
-                fila_n.codigo_detalle_1
-            )
-
-        # --------------------------------------------------------
-        # SIN DETALLES
-        # --------------------------------------------------------
-
-        else:
-
-            campo_condicion = "food_name"
-
-            codigo_condicion = int(
-                fila_n.food_name_code
-            )
-
-
-        # ========================================================
-        # GENERAR IF PARA EL CÓDIGO
-        # ========================================================
-
-        condiciones_food_code.append(
-            f"if("
-            f"[{campo_condicion}] = "
-            f"'{codigo_condicion}', "
-            f"{fila_n.food_code},"
-        )
-
-
-        # ========================================================
-        # GENERAR IF PARA EL MÉTODO DE CONVERSIÓN
-        # ========================================================
-
-        conversion = (
-            fila_n.conversion
-            if pd.notna(fila_n.conversion)
-            else ""
-        )
-
-        condiciones_conversion.append(
-            f"if("
-            f"[{campo_condicion}] = "
-            f"'{codigo_condicion}', "
-            f"'{conversion}',"
-        )
-
-
-    # ============================================================
-    # CONSTRUIR FÓRMULA DEL CÓDIGO
-    # ============================================================
-
-    formula_food_code = "\n".join(
-        condiciones_food_code
-    )
-
-    formula_food_code += "''"
-
-    formula_food_code += ")" * len(
-        condiciones_food_code
-    )
-
-
-    # ============================================================
-    # CONSTRUIR FÓRMULA DEL MÉTODO DE CONVERSIÓN
-    # ============================================================
-
-    formula_conversion = "\n".join(
-        condiciones_conversion
-    )
-
-    formula_conversion += "''"
-
-    formula_conversion += ")" * len(
-        condiciones_conversion
-    )
-
-
-    # ============================================================
-    # MOSTRAR
-    # ============================================================
-
-    formula_food_code
-    return (formula_conversion,)
 
 
 @app.cell
