@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.5"
+__generated_with = "0.25.1"
 app = marimo.App(width="medium")
 
 
@@ -232,10 +232,20 @@ def _(alimentos, df_foods, df_red, pd):
         }
 
 
-    def crear_choices(mapa):
+    def crear_choices(mapa, codigos_originales=None):
+        # Si NO es el último detalle:
+        # se utilizan códigos internos 1, 2, 3...
+        if codigos_originales is None:
+            return " | ".join(
+                f"{codigo}, {detalle}"
+                for detalle, codigo in mapa.items()
+            )
+
+        # Si ES el último detalle:
+        # se utiliza directamente el código original del Excel
         return " | ".join(
-            f"{codigo}, {detalle}"
-            for detalle, codigo in mapa.items()
+            f"{codigos_originales[detalle]}, {detalle}"
+            for detalle in mapa
         )
 
 
@@ -275,14 +285,45 @@ def _(alimentos, df_foods, df_red, pd):
         mapa_1 = crear_mapa(detalles_1)
         campo_1 = f"f_d_1_{codigo_alimento}"
 
+        # Verificamos si detalle 1 es el ÚLTIMO nivel
+        tiene_detalle_2 = (
+            filas_alimento["detalle_2"]
+            .dropna()
+            .astype(str)
+            .str.strip()
+            .ne("")
+            .any()
+        )
+
+        if tiene_detalle_2:
+            # Detalle 1 NO es el último:
+            # utiliza códigos internos 1, 2, 3...
+            choices_1 = crear_choices(mapa_1)
+
+        else:
+            # Detalle 1 ES el último:
+            # utiliza el código original del Excel
+            codigos_originales_1 = {
+                str(fila["detalle_1"]).strip(): fila["original_code"]
+                for _, fila in filas_alimento.iterrows()
+                if pd.notna(fila["detalle_1"])
+                and str(fila["detalle_1"]).strip() != ""
+            }
+
+            choices_1 = crear_choices(
+                mapa_1,
+                codigos_originales_1
+            )
+
         filas_detalle.append(
             crear_fila(
                 campo_1,
                 f"Seleccione la especificación 1 de {nombre_alimento}",
-                crear_choices(mapa_1),
+                choices_1,
                 f"[food_name] = '{codigo_alimento}'"
             )
         )
+
 
         # ========================================================
         # DETALLE 2
@@ -312,17 +353,48 @@ def _(alimentos, df_foods, df_red, pd):
                 f"{codigo_1}"
             )
 
+            # Verificamos si detalle 2 es el ÚLTIMO nivel
+            tiene_detalle_3 = (
+                filas_detalle_1["detalle_3"]
+                .dropna()
+                .astype(str)
+                .str.strip()
+                .ne("")
+                .any()
+            )
+
+            if tiene_detalle_3:
+                # Detalle 2 NO es el último:
+                # utiliza códigos internos
+                choices_2 = crear_choices(mapa_2)
+
+            else:
+                # Detalle 2 ES el último:
+                # utiliza el código original del Excel
+                codigos_originales_2 = {
+                    str(fila["detalle_2"]).strip(): fila["original_code"]
+                    for _, fila in filas_detalle_1.iterrows()
+                    if pd.notna(fila["detalle_2"])
+                    and str(fila["detalle_2"]).strip() != ""
+                }
+
+                choices_2 = crear_choices(
+                    mapa_2,
+                    codigos_originales_2
+                )
+
             filas_detalle.append(
                 crear_fila(
                     campo_2,
                     f"Seleccione la especificación 2 de {nombre_alimento}",
-                    crear_choices(mapa_2),
+                    choices_2,
                     (
                         f"[food_name] = '{codigo_alimento}' "
                         f"and [{campo_1}] = '{codigo_1}'"
                     )
                 )
             )
+
 
             # ====================================================
             # DETALLE 3
@@ -353,11 +425,27 @@ def _(alimentos, df_foods, df_red, pd):
                     f"{codigo_2}"
                 )
 
+                # DETALLE 3 SIEMPRE ES EL ÚLTIMO NIVEL
+                # Por tanto, utilizamos directamente
+                # el código original del Excel.
+
+                codigos_originales_3 = {
+                    str(fila["detalle_3"]).strip(): fila["original_code"]
+                    for _, fila in filas_detalle_2.iterrows()
+                    if pd.notna(fila["detalle_3"])
+                    and str(fila["detalle_3"]).strip() != ""
+                }
+
+                choices_3 = crear_choices(
+                    mapa_3,
+                    codigos_originales_3
+                )
+
                 filas_detalle.append(
                     crear_fila(
                         campo_3,
                         f"Seleccione la especificación 3 de {nombre_alimento}",
-                        crear_choices(mapa_3),
+                        choices_3,
                         (
                             f"[food_name] = '{codigo_alimento}' "
                             f"and [{campo_1}] = '{codigo_1}' "
@@ -797,11 +885,11 @@ def _(df_codigo, pd):
     # ============================================================
 
     formula_food_code
-    return formula_conversion, formula_food_code
+    return (formula_conversion,)
 
 
 @app.cell
-def _(choices_name, df_red, formula_conversion, formula_food_code, pd):
+def _(choices_name, df_red, formula_conversion, pd):
     fila_food = pd.DataFrame(
         columns=df_red.columns
     )
@@ -833,22 +921,22 @@ def _(choices_name, df_red, formula_conversion, formula_food_code, pd):
     # CAMPO: CÓDIGO ORIGINAL
     # ============================================================
 
-    fila_food.loc[1, "Variable / Field Name"] = "food_code"
-    fila_food.loc[1, "Form Name"] = "alimentos"
-    fila_food.loc[1, "Field Type"] = "calc"
-    fila_food.loc[1, "Field Label"] = "Código del alimento"
+    #fila_food.loc[1, "Variable / Field Name"] = "food_code"
+    #fila_food.loc[1, "Form Name"] = "alimentos"
+    #fila_food.loc[1, "Field Type"] = "calc"
+    #fila_food.loc[1, "Field Label"] = "Código del alimento"
 
-    fila_food.loc[
-        1,
-        "Choices, Calculations, OR Slider Labels"
-    ] = formula_food_code
+    #fila_food.loc[
+    #    1,
+    #    "Choices, Calculations, OR Slider Labels"
+    #] = formula_food_code
 
-    fila_food.loc[
-        1,
-        "Branching Logic (Show field only if...)"
-    ] = ""
+    #fila_food.loc[
+    #    1,
+    #    "Branching Logic (Show field only if...)"
+    #] = ""
 
-    fila_food.loc[1, "Required Field?"] = ""
+    #fila_food.loc[1, "Required Field?"] = ""
 
 
     # ============================================================
