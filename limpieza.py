@@ -410,7 +410,7 @@ def _(alimentos, df_foods, df_red, pd):
         # Generamos un mapa con cada uno de los detalles
         #{"Frita": 1,"Asada": 2,"Cocida": 3}
         mapa_1 = crear_mapa(detalles_1)
-    
+
         # Los codigos de detalle tienen la siguiente estructura
         # f_d_<nivel_detalle>_<codigo_alimento>
         # En este caso estamos definiendo un código para detalle de nivel 1
@@ -426,7 +426,7 @@ def _(alimentos, df_foods, df_red, pd):
         # 1, asada
         # 2, frita
         # 3, molida
-    
+
         # Verificamos si detalle 1 es el ÚLTIMO nivel
         tiene_detalle_2 = tiene_detalle(filas_alimento, "detalle_2")
 
@@ -474,6 +474,7 @@ def _(alimentos, df_foods, df_red, pd):
 
         for detalle_1, codigo_1 in mapa_1.items():
 
+            # En este momento filas_alimento ya solo tiene las filas filtradas  relacionadas al alimento dado y el detalle dado
             filas_detalle_1 = filas_alimento[
                 filas_alimento["detalle_1"]
                 .astype(str)
@@ -481,6 +482,7 @@ def _(alimentos, df_foods, df_red, pd):
                 == detalle_1
             ]
 
+            # Obtenemos unicamente los detalles de nivel 2
             detalles_2 = obtener_detalles(
                 filas_detalle_1,
                 "detalle_2"
@@ -609,6 +611,287 @@ def _(alimentos, df_foods, df_red, pd):
 
     df_detalles
     return (df_detalles,)
+
+
+@app.cell
+def _(alimentos, df_foods, df_portion, pd):
+
+    def generar_df_codigo(
+        df_foods,
+        alimentos,
+        df_portion
+    ):
+
+        filas_codigo_local = []
+
+        for alimento_row in alimentos.itertuples():
+
+            nombre_alimento_local = alimento_row.name
+            codigo_alimento_local = alimento_row.code
+
+            filas_alimento_local = df_foods[
+                df_foods["name"] == nombre_alimento_local
+            ]
+
+            # ====================================================
+            # DETALLE 1
+            # ====================================================
+
+            detalles_1_local = (
+                filas_alimento_local["detalle_1"]
+                .dropna()
+                .astype(str)
+                .str.strip()
+            )
+
+            detalles_1_local = detalles_1_local[
+                detalles_1_local != ""
+            ].unique()
+
+            mapa_detalle_1_local = {
+                detalle: i + 1
+                for i, detalle in enumerate(
+                    detalles_1_local
+                )
+            }
+
+            # ====================================================
+            # RECORRER CADA FILA ORIGINAL DEL EXCEL
+            # ====================================================
+
+            for _, fila_original_local in (
+                filas_alimento_local.iterrows()
+            ):
+
+                original_code_local = (
+                    fila_original_local["original_code"]
+                )
+
+                detalle_1_local = (
+                    str(
+                        fila_original_local["detalle_1"]
+                    ).strip()
+                    if pd.notna(
+                        fila_original_local["detalle_1"]
+                    )
+                    else ""
+                )
+
+                detalle_2_local = (
+                    str(
+                        fila_original_local["detalle_2"]
+                    ).strip()
+                    if pd.notna(
+                        fila_original_local["detalle_2"]
+                    )
+                    else ""
+                )
+
+                detalle_3_local = (
+                    str(
+                        fila_original_local["detalle_3"]
+                    ).strip()
+                    if pd.notna(
+                        fila_original_local["detalle_3"]
+                    )
+                    else ""
+                )
+
+                # ================================================
+                # CÓDIGO DETALLE 1
+                # ================================================
+
+                codigo_detalle_1_local = (
+                    mapa_detalle_1_local.get(
+                        detalle_1_local
+                    )
+                )
+
+                # ================================================
+                # CÓDIGO DETALLE 2
+                # ================================================
+
+                codigo_detalle_2_local = None
+
+                if detalle_2_local != "":
+
+                    filas_detalle_2_local = (
+                        filas_alimento_local[
+                            filas_alimento_local[
+                                "detalle_1"
+                            ]
+                            .astype(str)
+                            .str.strip()
+                            == detalle_1_local
+                        ]
+                    )
+
+                    detalles_2_local = (
+                        filas_detalle_2_local[
+                            "detalle_2"
+                        ]
+                        .dropna()
+                        .astype(str)
+                        .str.strip()
+                    )
+
+                    detalles_2_local = (
+                        detalles_2_local[
+                            detalles_2_local != ""
+                        ].unique()
+                    )
+
+                
+                    mapa_detalle_2_local = {
+                        detalle: i + 1
+                        for i, detalle in enumerate(
+                            detalles_2_local
+                        )
+                    }
+
+                    codigo_detalle_2_local = (
+                        mapa_detalle_2_local.get(
+                            detalle_2_local
+                        )
+                    )
+
+                # ================================================
+                # CÓDIGO DETALLE 3
+                # ================================================
+
+                codigo_detalle_3_local = None
+
+                if detalle_3_local != "":
+
+                    filas_detalle_3_local = (
+                        filas_alimento_local[
+                            (
+                                filas_alimento_local[
+                                    "detalle_1"
+                                ]
+                                .astype(str)
+                                .str.strip()
+                                == detalle_1_local
+                            )
+                            &
+                            (
+                                filas_alimento_local[
+                                    "detalle_2"
+                                ]
+                                .astype(str)
+                                .str.strip()
+                                == detalle_2_local
+                            )
+                        ]
+                    )
+
+                    detalles_3_local = (
+                        filas_detalle_3_local[
+                            "detalle_3"
+                        ]
+                        .dropna()
+                        .astype(str)
+                        .str.strip()
+                    )
+
+                    detalles_3_local = (
+                        detalles_3_local[
+                            detalles_3_local != ""
+                        ].unique()
+                    )
+
+                    mapa_detalle_3_local = {
+                        detalle: i + 1
+                        for i, detalle in enumerate(
+                            detalles_3_local
+                        )
+                    }
+
+                    codigo_detalle_3_local = (
+                        mapa_detalle_3_local.get(
+                            detalle_3_local
+                        )
+                    )
+
+                # ================================================
+                # GUARDAR RELACIÓN
+                # ================================================
+
+                filas_codigo_local.append({
+
+                    # Código original del Excel
+                    "food_code": original_code_local,
+
+                    # Código interno del alimento
+                    "food_name_code": codigo_alimento_local,
+
+                    # Detalle 1
+                    "detalle_1": detalle_1_local,
+                    "codigo_detalle_1": (
+                        codigo_detalle_1_local
+                    ),
+
+                    # Detalle 2
+                    "detalle_2": detalle_2_local,
+                    "codigo_detalle_2": (
+                        codigo_detalle_2_local
+                    ),
+
+                    # Detalle 3
+                    "detalle_3": detalle_3_local,
+                    "codigo_detalle_3": (
+                        codigo_detalle_3_local
+                    )
+                })
+
+
+        # ============================================================
+        # CREAR DATAFRAME
+        # ============================================================
+
+        df_codigo_local = pd.DataFrame(
+            filas_codigo_local
+        )
+
+
+        # ============================================================
+        # AGREGAR MÉTODO DE CONVERSIÓN
+        # ============================================================
+
+        df_codigo_local = df_codigo_local.merge(
+            df_portion[
+                ["code", "conversion"]
+            ],
+            left_on="food_code",
+            right_on="code",
+            how="left"
+        )
+
+
+        # ============================================================
+        # ELIMINAR COLUMNA AUXILIAR
+        # ============================================================
+
+        df_codigo_local = df_codigo_local.drop(
+            columns=["code"]
+        )
+
+
+        return df_codigo_local
+
+
+    # ============================================================
+    # GENERAR DATAFRAME
+    # ============================================================
+
+    df_codigo = generar_df_codigo(
+        df_foods,
+        alimentos,
+        df_portion
+    )
+
+    df_codigo
+    return (df_codigo,)
 
 
 @app.cell
@@ -807,7 +1090,7 @@ def _(df_codigo, pd):
 
         # Determinar nivel
         if pd.notna(fila_n.codigo_detalle_3):
-    
+
             nivel = 3
             campo_condicion = (
                 f"f_d_3_"
@@ -815,37 +1098,38 @@ def _(df_codigo, pd):
                 f"{int(fila_n.codigo_detalle_1)}_"
                 f"{int(fila_n.codigo_detalle_2)}"
             )
-    
+
         elif pd.notna(fila_n.codigo_detalle_2):
-    
+
             nivel = 2
             campo_condicion = (
                 f"f_d_2_"
                 f"{fila_n.food_name_code}_"
                 f"{int(fila_n.codigo_detalle_1)}"
             )
-    
+
         elif pd.notna(fila_n.codigo_detalle_1):
-    
+
             nivel = 1
             campo_condicion = (
                 f"f_d_1_"
                 f"{fila_n.food_name_code}"
             )
-    
+
         else:
-    
+
             nivel = 0
             campo_condicion = "food_name"
-    
-    
+
+
         # Solo usar el último nivel
         if nivel != niveles_por_alimento[codigo_alimento2]:
             continue
-    
-    
+
+
         # El último nivel usa el código ORIGINAL
         codigo_condicion = int(fila_n.food_code)
+
 
 
         conversion = (
@@ -891,287 +1175,9 @@ def _(df_codigo, pd):
     formula_conversion += "\n''"
 
     formula_conversion += ")" * len(bloques_conversion)
+
+    formula_conversion
     return (formula_conversion,)
-
-
-@app.cell
-def _(alimentos, df_foods, df_portion, pd):
-
-    def generar_df_codigo(
-        df_foods,
-        alimentos,
-        df_portion
-    ):
-
-        filas_codigo_local = []
-
-        for alimento_row in alimentos.itertuples():
-
-            nombre_alimento_local = alimento_row.name
-            codigo_alimento_local = alimento_row.code
-
-            filas_alimento_local = df_foods[
-                df_foods["name"] == nombre_alimento_local
-            ]
-
-            # ====================================================
-            # DETALLE 1
-            # ====================================================
-
-            detalles_1_local = (
-                filas_alimento_local["detalle_1"]
-                .dropna()
-                .astype(str)
-                .str.strip()
-            )
-
-            detalles_1_local = detalles_1_local[
-                detalles_1_local != ""
-            ].unique()
-
-            mapa_detalle_1_local = {
-                detalle: i + 1
-                for i, detalle in enumerate(
-                    detalles_1_local
-                )
-            }
-
-            # ====================================================
-            # RECORRER CADA FILA ORIGINAL DEL EXCEL
-            # ====================================================
-
-            for _, fila_original_local in (
-                filas_alimento_local.iterrows()
-            ):
-
-                original_code_local = (
-                    fila_original_local["original_code"]
-                )
-
-                detalle_1_local = (
-                    str(
-                        fila_original_local["detalle_1"]
-                    ).strip()
-                    if pd.notna(
-                        fila_original_local["detalle_1"]
-                    )
-                    else ""
-                )
-
-                detalle_2_local = (
-                    str(
-                        fila_original_local["detalle_2"]
-                    ).strip()
-                    if pd.notna(
-                        fila_original_local["detalle_2"]
-                    )
-                    else ""
-                )
-
-                detalle_3_local = (
-                    str(
-                        fila_original_local["detalle_3"]
-                    ).strip()
-                    if pd.notna(
-                        fila_original_local["detalle_3"]
-                    )
-                    else ""
-                )
-
-                # ================================================
-                # CÓDIGO DETALLE 1
-                # ================================================
-
-                codigo_detalle_1_local = (
-                    mapa_detalle_1_local.get(
-                        detalle_1_local
-                    )
-                )
-
-                # ================================================
-                # CÓDIGO DETALLE 2
-                # ================================================
-
-                codigo_detalle_2_local = None
-
-                if detalle_2_local != "":
-
-                    filas_detalle_2_local = (
-                        filas_alimento_local[
-                            filas_alimento_local[
-                                "detalle_1"
-                            ]
-                            .astype(str)
-                            .str.strip()
-                            == detalle_1_local
-                        ]
-                    )
-
-                    detalles_2_local = (
-                        filas_detalle_2_local[
-                            "detalle_2"
-                        ]
-                        .dropna()
-                        .astype(str)
-                        .str.strip()
-                    )
-
-                    detalles_2_local = (
-                        detalles_2_local[
-                            detalles_2_local != ""
-                        ].unique()
-                    )
-
-                    mapa_detalle_2_local = {
-                        detalle: i + 1
-                        for i, detalle in enumerate(
-                            detalles_2_local
-                        )
-                    }
-
-                    codigo_detalle_2_local = (
-                        mapa_detalle_2_local.get(
-                            detalle_2_local
-                        )
-                    )
-
-                # ================================================
-                # CÓDIGO DETALLE 3
-                # ================================================
-
-                codigo_detalle_3_local = None
-
-                if detalle_3_local != "":
-
-                    filas_detalle_3_local = (
-                        filas_alimento_local[
-                            (
-                                filas_alimento_local[
-                                    "detalle_1"
-                                ]
-                                .astype(str)
-                                .str.strip()
-                                == detalle_1_local
-                            )
-                            &
-                            (
-                                filas_alimento_local[
-                                    "detalle_2"
-                                ]
-                                .astype(str)
-                                .str.strip()
-                                == detalle_2_local
-                            )
-                        ]
-                    )
-
-                    detalles_3_local = (
-                        filas_detalle_3_local[
-                            "detalle_3"
-                        ]
-                        .dropna()
-                        .astype(str)
-                        .str.strip()
-                    )
-
-                    detalles_3_local = (
-                        detalles_3_local[
-                            detalles_3_local != ""
-                        ].unique()
-                    )
-
-                    mapa_detalle_3_local = {
-                        detalle: i + 1
-                        for i, detalle in enumerate(
-                            detalles_3_local
-                        )
-                    }
-
-                    codigo_detalle_3_local = (
-                        mapa_detalle_3_local.get(
-                            detalle_3_local
-                        )
-                    )
-
-                # ================================================
-                # GUARDAR RELACIÓN
-                # ================================================
-
-                filas_codigo_local.append({
-
-                    # Código original del Excel
-                    "food_code": original_code_local,
-
-                    # Código interno del alimento
-                    "food_name_code": codigo_alimento_local,
-
-                    # Detalle 1
-                    "detalle_1": detalle_1_local,
-                    "codigo_detalle_1": (
-                        codigo_detalle_1_local
-                    ),
-
-                    # Detalle 2
-                    "detalle_2": detalle_2_local,
-                    "codigo_detalle_2": (
-                        codigo_detalle_2_local
-                    ),
-
-                    # Detalle 3
-                    "detalle_3": detalle_3_local,
-                    "codigo_detalle_3": (
-                        codigo_detalle_3_local
-                    )
-                })
-
-
-        # ============================================================
-        # CREAR DATAFRAME
-        # ============================================================
-
-        df_codigo_local = pd.DataFrame(
-            filas_codigo_local
-        )
-
-
-        # ============================================================
-        # AGREGAR MÉTODO DE CONVERSIÓN
-        # ============================================================
-
-        df_codigo_local = df_codigo_local.merge(
-            df_portion[
-                ["code", "conversion"]
-            ],
-            left_on="food_code",
-            right_on="code",
-            how="left"
-        )
-
-
-        # ============================================================
-        # ELIMINAR COLUMNA AUXILIAR
-        # ============================================================
-
-        df_codigo_local = df_codigo_local.drop(
-            columns=["code"]
-        )
-
-
-        return df_codigo_local
-
-
-    # ============================================================
-    # GENERAR DATAFRAME
-    # ============================================================
-
-    df_codigo = generar_df_codigo(
-        df_foods,
-        alimentos,
-        df_portion
-    )
-
-    df_codigo
-    return (df_codigo,)
 
 
 @app.cell
@@ -1336,6 +1342,11 @@ def _(df_red_prueba):
         "data_dictionary_generado.csv",
         index=False
     )
+    return
+
+
+@app.cell
+def _():
     return
 
 
