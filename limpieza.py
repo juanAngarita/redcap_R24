@@ -72,15 +72,44 @@ def _(mo):
 @app.cell
 def _(food_file, pd):
     # Base de datos de alimentos, hoja principal
-    df_foods = pd.read_excel(food_file, sheet_name="Food composition table")
+    df_basic_foods = pd.read_excel(food_file, sheet_name="Food composition table")
 
     # Unicamente nos quedamos con la columna del código y el nombre de la comida
-    df_foods = df_foods[["Food code*", "FCT food name"]]
+    df_basic_foods = df_basic_foods[["Food code*", "FCT food name"]]
 
     # Renombramos las columnas
-    df_foods = df_foods.rename(columns={"FCT food name": "name"})
-    df_foods = df_foods.rename(columns={"Food code*": "original_code"})
+    df_basic_foods = df_basic_foods.rename(columns={"FCT food name": "name"})
+    df_basic_foods = df_basic_foods.rename(columns={"Food code*": "original_code"})
 
+    df_basic_foods
+    return (df_basic_foods,)
+
+
+@app.cell
+def _(food_file, pd):
+    # Base de datos de alimentos, hoja principal
+    df_recipes = pd.read_excel(food_file, sheet_name="Recipes")
+
+    # Unicamente nos quedamos con la columna del código y el nombre de la comida
+    df_recipes = df_recipes[["Recipe code*", "Survey recipes (Lang. 1)"]]
+
+    # Renombramos las columnas
+    df_recipes = df_recipes.rename(columns={"Survey recipes (Lang. 1)": "name"})
+    df_recipes = df_recipes.rename(columns={"Recipe code*": "original_code"})
+
+    # Eliminamos códigos repetidos
+    df_recipes = df_recipes.drop_duplicates(subset=["original_code"], keep="first", ignore_index=True)
+
+    df_recipes
+    return (df_recipes,)
+
+
+@app.cell
+def _(df_basic_foods, df_recipes, pd):
+    df_foods = pd.concat(
+        [df_recipes, df_basic_foods],
+        ignore_index=True
+    )
     df_foods
     return (df_foods,)
 
@@ -613,6 +642,35 @@ def _(alimentos, df_foods, df_red, pd):
     return (df_detalles,)
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    # 4. Método de conversión
+
+    El objetivo de esta sección es poder generar la formula que permita obtener lo que es el método de conversión de la medida del alimento.
+    Cada alimento, junto a sus detalles tiene un único método de conversión.
+
+    Para saber cuál es el método de conversión, se plantea una formula con la siguiente estructura:
+
+    if([f_d_1_1] = '1001' or [f_d_1_2] = '1002' or ..., "metodo1",
+        if([f_d_1_3] = '1001' or [f_d_1_4] = '1002' or ..., "metodo2",)
+    )
+
+    El objetico es no tener un condicional por cada posible cómida, sino en general poder agrupar usando el operador de or, lo cuál permite que la formula cargue más rapido en redcap.
+
+    Notar que cómo al llegar al detalle final de cada comida, en la sección de choices se marca con el código original, se debe usar este código también para la formula.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Este primer DF permite mapear cáda nivel de detalle con el código original para posteriormente poder realizar la formula que genera el método de conversión.
+    """)
+    return
+
+
 @app.cell
 def _(alimentos, df_foods, df_portion, pd):
 
@@ -624,11 +682,14 @@ def _(alimentos, df_foods, df_portion, pd):
 
         filas_codigo_local = []
 
+        # Por cada alimento en el DF de alimentos generales
         for alimento_row in alimentos.itertuples():
 
+            # Obtenemos su nombre y su codigo
             nombre_alimento_local = alimento_row.name
             codigo_alimento_local = alimento_row.code
 
+            # Buscamos todas las filas relacionadas únicamente con ese alimento general
             filas_alimento_local = df_foods[
                 df_foods["name"] == nombre_alimento_local
             ]
@@ -637,6 +698,7 @@ def _(alimentos, df_foods, df_portion, pd):
             # DETALLE 1
             # ====================================================
 
+            # Obtenemos los detalles únicos de primer nivel de dicho alimento
             detalles_1_local = (
                 filas_alimento_local["detalle_1"]
                 .dropna()
@@ -648,6 +710,7 @@ def _(alimentos, df_foods, df_portion, pd):
                 detalles_1_local != ""
             ].unique()
 
+            # Le asignamos un número
             mapa_detalle_1_local = {
                 detalle: i + 1
                 for i, detalle in enumerate(
@@ -741,7 +804,7 @@ def _(alimentos, df_foods, df_portion, pd):
                         ].unique()
                     )
 
-                
+
                     mapa_detalle_2_local = {
                         detalle: i + 1
                         for i, detalle in enumerate(
@@ -892,6 +955,25 @@ def _(alimentos, df_foods, df_portion, pd):
 
     df_codigo
     return (df_codigo,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    El objetivo de esta sección es poder generar la formula que permita obtener lo que es el método de conversión de la medida del alimento.
+    Cada alimento, junto a sus detalles tiene un único método de conversión.
+
+    Para saber cuál es el método de conversión, se plantea una formula con la siguiente estructura:
+
+    if([f_d_1_1] = '1001' or [f_d_1_2] = '1002' or ..., "metodo1",
+        if([f_d_1_3] = '1001' or [f_d_1_4] = '1002' or ..., "metodo2",)
+    )
+
+    El objetico es no tener un condicional por cada posible cómida, sino en general poder agrupar usando el operador de or, lo cuál permite que la formula cargue más rapido en redcap.
+
+    Notar que cómo al llegar al detalle final de cada comida, en la sección de choices se marca con el código original, se debe usar este código también para la formula.
+    """)
+    return
 
 
 @app.cell
