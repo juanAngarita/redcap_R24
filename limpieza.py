@@ -1209,8 +1209,12 @@ def _(df_codigo, pd):
             continue
 
 
-        # El último nivel usa el código ORIGINAL
-        codigo_condicion = int(fila_n.food_code)
+        # Si no hay detalles, se usa el código interno de food_name.
+        # Si hay detalles, se usa el código original del Excel.
+        if nivel == 0:
+            codigo_condicion = int(fila_n.food_name_code)
+        else:
+            codigo_condicion = int(fila_n.food_code)
 
 
 
@@ -1276,6 +1280,7 @@ def _(choices_name, df_red, formula_conversion, pd):
     fila_food.loc[0, "Variable / Field Name"] = "food_name"
     fila_food.loc[0, "Form Name"] = "alimentos"
     fila_food.loc[0, "Field Type"] = "dropdown"
+    fila_food.loc[0, "Text Validation Type OR Show Slider Number"] = "autocomplete"
     fila_food.loc[0, "Field Label"] = "Seleccione el alimento"
 
     fila_food.loc[
