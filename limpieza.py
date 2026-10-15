@@ -88,10 +88,14 @@ def _(food_file, pd):
 @app.cell
 def _(food_file, pd):
     # Base de datos de alimentos, hoja principal
-    df_recipes = pd.read_excel(food_file, sheet_name="Recipes")
+    # Leer todas las columnas de la hoja Recipes
+    df_recipes_raw = pd.read_excel(
+        food_file,
+        sheet_name="Recipes"
+    )
 
     # Unicamente nos quedamos con la columna del código y el nombre de la comida
-    df_recipes = df_recipes[["Recipe code*", "Survey recipes (Lang. 1)"]]
+    df_recipes = df_recipes_raw[["Recipe code*", "Survey recipes (Lang. 1)"]]
 
     # Renombramos las columnas
     df_recipes = df_recipes.rename(columns={"Survey recipes (Lang. 1)": "name"})
@@ -101,7 +105,33 @@ def _(food_file, pd):
     df_recipes = df_recipes.drop_duplicates(subset=["original_code"], keep="first", ignore_index=True)
 
     df_recipes
-    return (df_recipes,)
+    return df_recipes, df_recipes_raw
+
+
+@app.cell
+def _(df_recipes_raw):
+    # Tabla de ingredientes: una fila por ingrediente
+    df_recipe_ingredients = (
+        df_recipes_raw[
+            [
+                "Recipe code*",
+                "Food code*",
+                "Ingredient name (Lang. 1)"
+            ]
+        ]
+        .rename(columns={
+            "Recipe code*": "recipe_code",
+            "Food code*": "ingredient_code",
+            "Ingredient name (Lang. 1)": "ingredient_name"
+        })
+        .dropna(subset=["recipe_code", "ingredient_code"])
+        .drop_duplicates(
+            subset=["recipe_code", "ingredient_code"]
+        )
+        .reset_index(drop=True)
+    )
+    df_recipe_ingredients
+    return (df_recipe_ingredients,)
 
 
 @app.cell
@@ -1354,6 +1384,135 @@ def _(choices_name, df_red, formula_conversion, pd):
 
 
 @app.cell
+def _(df_recipes):
+    df_recipes
+    return
+
+
+@app.cell
+def _(alimentos, df_foods, df_recipe_ingredients, df_recipes, df_red, pd):
+    # ============================================================
+    # 1. MAPEAR CÓDIGO ORIGINAL DE RECETA -> CÓDIGO INTERNO
+    # ============================================================
+
+    recetas_con_codigo = df_foods.copy()
+
+    recetas_con_codigo["recipe_code_num"] = pd.to_numeric(
+        recetas_con_codigo["original_code"],
+        errors="coerce"
+    )
+
+    # Nos quedamos únicamente con las recetas (> 20000)
+    recetas_con_codigo = recetas_con_codigo[
+        recetas_con_codigo["recipe_code_num"] > 20000
+    ]
+
+    # Relacionamos el nombre general de la receta con su código
+    # interno de food_name
+    recetas_con_codigo = recetas_con_codigo.merge(
+        alimentos[["name", "code"]],
+        on="name",
+        how="left"
+    )
+
+    recetas_con_codigo = recetas_con_codigo.drop_duplicates(
+        subset=["recipe_code_num"]
+    )
+
+    mapa_codigo_interno = (
+        recetas_con_codigo
+        .set_index("recipe_code_num")["code"]
+        .to_dict()
+    )
+
+    # ============================================================
+    # 2. NORMALIZAR LOS CÓDIGOS DE LOS INGREDIENTES
+    # ============================================================
+
+    ingredientes_base = df_recipe_ingredients.copy()
+
+    ingredientes_base["recipe_code_num"] = pd.to_numeric(
+        ingredientes_base["recipe_code"],
+        errors="coerce"
+    )
+
+    ingredientes_base["ingredient_code_num"] = pd.to_numeric(
+        ingredientes_base["ingredient_code"],
+        errors="coerce"
+    )
+
+    filas_ingredientes = []
+
+    # ============================================================
+    # 3. GENERAR UNA PREGUNTA CHECKBOX POR RECETA
+    # ============================================================
+
+    for receta in df_recipes.itertuples():
+
+        try:
+            codigo_receta = int(float(receta.original_code))
+        except (ValueError, TypeError):
+            continue
+
+        # Solo recetas
+        if codigo_receta <= 20000:
+            continue
+
+        # Obtener código interno de food_name
+        codigo_interno = mapa_codigo_interno.get(codigo_receta)
+
+        if pd.isna(codigo_interno) if codigo_interno is not None else True:
+            continue
+
+        codigo_interno = int(codigo_interno)
+
+        # Buscar ingredientes usando el código normalizado
+        ingredientes = ingredientes_base[
+            ingredientes_base["recipe_code_num"] == codigo_receta
+        ].dropna(subset=["ingredient_code_num"])
+
+        if ingredientes.empty:
+            continue
+
+        # Construir las opciones del checkbox
+        choices = " | ".join(
+            f"{int(row.ingredient_code_num)}, {row.ingredient_name}"
+            for row in ingredientes.itertuples()
+        )
+
+        # La variable conserva el código original
+        campo = f"recipe_ing_{codigo_receta}"
+
+        fila = {col: "" for col in df_red.columns}
+
+        fila.update({
+            "Variable / Field Name": campo,
+            "Form Name": "alimentos",
+            "Field Type": "checkbox",
+            "Field Label": (
+                f"Seleccione los ingredientes de {receta.name}"
+            ),
+            "Choices, Calculations, OR Slider Labels": choices,
+
+            # IMPORTANTE: usar el código interno de food_name
+            "Branching Logic (Show field only if...)":
+                f"[food_name] = '{codigo_interno}'",
+
+            "Required Field?": ""
+        })
+
+        filas_ingredientes.append(fila)
+
+    df_ingredientes_recetas = pd.DataFrame(
+        filas_ingredientes,
+        columns=df_red.columns
+    )
+
+    df_ingredientes_recetas
+    return
+
+
+@app.cell
 def _(df_detalles, df_red, fila_food, pd):
     # ============================================================
     # UNIR CAMPOS
@@ -1363,7 +1522,8 @@ def _(df_detalles, df_red, fila_food, pd):
         [
             df_red,
             fila_food,
-            df_detalles
+            df_detalles,
+            #df_ingredientes_recetas
         ],
         ignore_index=True
     )
@@ -1429,6 +1589,11 @@ def _(df_red_prueba):
         "data_dictionary_generado.csv",
         index=False
     )
+    return
+
+
+@app.cell
+def _():
     return
 
 
