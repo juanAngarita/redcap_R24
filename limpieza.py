@@ -39,7 +39,7 @@ def _():
     if "marimo" in sys.modules:
         # Estamos trabajando dentro de marimo
         food_file = "FMDB_JULIO_2026.xlsx"
-        redcap_file = "DiseoEImplementacinDeUnaHerram_DataDictionary_2026-10-04.csv"
+        redcap_file = "DiseoEImplementacinDeUnaHerram_DataDictionary_2026-10-16.csv"
     else:
         # Si la importación se ejecuta a través de consola
         parser = argparse.ArgumentParser()
@@ -139,7 +139,11 @@ def _(df_basic_foods, df_recipes, pd):
     df_foods = pd.concat(
         [df_recipes, df_basic_foods],
         ignore_index=True
-    )
+    ).drop_duplicates(
+        subset=["name"],
+        keep="first"
+    ).reset_index(drop=True)
+
     df_foods
     return (df_foods,)
 
@@ -194,8 +198,9 @@ def _(pd, redcap_file):
             "food_conversion"
         ])
         & ~df_red["Variable / Field Name"].str.contains(
-            "food_detail" or "f_d",
-            na=False
+            r"food_detail|f_d|recipe_ing",
+            na=False,
+            regex=True
         )
     ].reset_index(drop=True)
 

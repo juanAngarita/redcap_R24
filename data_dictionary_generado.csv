@@ -61,7 +61,6 @@ food_conversion,alimentos,,text,Método de conversión,,,,,,,,,,,,,"@CALCTEXT(if
     or [food_name] = '49'
     or [food_name] = '63'
     or [food_name] = '71'
-    or [food_name] = '71'
     or [f_d_2_115_1] = '1011'
     or [f_d_1_116] = '1012'
     or [f_d_2_118_1] = '1016'
