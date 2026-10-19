@@ -270,17 +270,47 @@ def _(mo):
 
 @app.cell
 def _(df_foods):
-    # Generamos un nuevo DF con unicamente las comidas generales quitando repetidos
+
+    # Generamos un nuevo DF con los alimentos generales
     alimentos = (
         df_foods[["name"]]
         .drop_duplicates()
         .reset_index(drop=True)
     )
 
-    # Generamos indez automatica
-    alimentos["code"] = alimentos.index + 1
+    # Determinar si cada alimento tiene detalles
+    tiene_detalles = (
+        df_foods.groupby("name")[["detalle_1", "detalle_2", "detalle_3"]]
+        .apply(
+            lambda grupo: grupo.notna().any().any()
+        )
+        .fillna(False)
+        .astype(bool)
+    )
 
-    # Reorganizamos columnas
+    # Obtener el código original de cada alimento sin detalles
+    codigos_originales = (
+        df_foods[
+            ~df_foods["name"].map(tiene_detalles).fillna(False).astype(bool)
+        ]
+        .drop_duplicates(subset=["name"])
+        .set_index("name")["original_code"]
+    )
+
+    # Generar códigos internos para los alimentos que tienen detalles
+    alimentos["code"] = range(1, len(alimentos) + 1)
+
+    # Si no tiene detalles, usar el código original
+    alimentos["code"] = alimentos.apply(
+        lambda fila: (
+            int(codigos_originales[fila["name"]])
+            if fila["name"] in codigos_originales.index
+            else fila["code"]
+        ),
+        axis=1
+    )
+
+    # Reorganizar columnas
     alimentos = alimentos[["code", "name"]]
 
     alimentos
@@ -1012,8 +1042,8 @@ def _(mo):
 
 
 @app.cell
-def _(df_codigo, pd):
-    condiciones_food_code = []
+def _(condiciones_food_code, df_codigo, pd):
+
 
     # ============================================================
     # CONDICIONES PARA CONVERSIÓN
