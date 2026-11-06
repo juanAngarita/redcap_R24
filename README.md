@@ -15,7 +15,7 @@ Para ejecutar es necesario que el usuario tenga instalado python en su computado
 
 pip install pandas openpyxl marimo
 
-python3 limpieza.py <FMBD>.xlsx <redcap>.csv
+python3 limpieza.py FMBD.xlsx redcap.csv
 
 # Desarrollo
 El script fue desarrollado en Marimo para poder ejecutar el código en formato de notebook. Fuera de eso solo usa librerías básicas como pandas y librerías para la lectura de archivos. Dado que el código de Marimo se vuelve un .py el código se puede ejecutar como un script. La salida final de este es un archivo que se deben cargar a REDCAP.
